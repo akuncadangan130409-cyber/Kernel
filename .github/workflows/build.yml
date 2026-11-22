@@ -95,7 +95,12 @@ jobs:
           scripts/config --file out/.config --enable KSU
           make O=out olddefconfig
           grep -qx 'CONFIG_KSU=y' out/.config
-          make O=out -j"$(nproc)" Image.gz
+          if ! make O=out -j"$(nproc)" Image.gz > "$RUNNER_TEMP/kernel-build.log" 2>&1; then
+            tail -n 30 "$RUNNER_TEMP/kernel-build.log" | while IFS= read -r line; do
+              printf '::error::%s\n' "$line"
+            done
+            exit 1
+          fi
 
           test -s out/arch/arm64/boot/Image.gz
           mkdir -p "$GITHUB_WORKSPACE/output"
