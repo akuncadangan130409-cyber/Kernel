@@ -25,7 +25,7 @@ jobs:
       - name: Fetch pinned kernel source and Clang
         env:
           KERNEL_COMMIT: 9aba441cf6cd86f1e81ee6a2608e9102b05c52a7
-          CLANG_COMMIT: 7bd6e51977c322cedec7e6c714c5b214b9564f35
+          CLANG_COMMIT: 252aba16f513a857bc923172f67b0e55e23de35f
         run: |
           set -euo pipefail
           KERNEL_SRC="$RUNNER_TEMP/munch-kernel"
