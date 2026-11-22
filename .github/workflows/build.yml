@@ -2,6 +2,8 @@ name: Build KernelSU for Munch
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -111,6 +113,14 @@ jobs:
           new = 'prev_energy=%lu eval_cpu=%d eval_energy=%lu best_energy_cpu=%d best_energy=%lu'
           if old not in s:
               raise SystemExit("expected sched_compute_energy format not found")
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path("include/trace/events/walt.h")
+          s = p.read_text()
+          old = "active_time %u grp_cs %lld grp_ps %lld"
+          new = "active_time %llu grp_cs %llu grp_ps %llu"
+          if old not in s:
+              raise SystemExit("expected WALT trace format not found")
           p.write_text(s.replace(old, new, 1))
           PYTHON_PATCH
 
