@@ -1,0 +1,102 @@
+name: Build KernelSU for Munch
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates cpio flex git \
+            libelf-dev libncurses5 libncurses-dev libssl-dev libtinfo5 \
+            python3 unzip zip
+
+      - name: Fetch pinned kernel source and Clang
+        env:
+          KERNEL_COMMIT: 9aba441cf6cd86f1e81ee6a2608e9102b05c52a7
+          CLANG_COMMIT: 7bd6e51977c322cedec7e6c714c5b214b9564f35
+        run: |
+          set -euo pipefail
+          KERNEL_SRC="$RUNNER_TEMP/munch-kernel"
+          CLANG_SRC="$RUNNER_TEMP/aosp-clang"
+
+          git init "$KERNEL_SRC"
+          git -C "$KERNEL_SRC" remote add origin https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git
+          git -C "$KERNEL_SRC" fetch --depth=1 origin "$KERNEL_COMMIT"
+          git -C "$KERNEL_SRC" checkout --detach FETCH_HEAD
+          test "$(git -C "$KERNEL_SRC" rev-parse HEAD)" = "$KERNEL_COMMIT"
+
+          git init "$CLANG_SRC"
+          git -C "$CLANG_SRC" remote add origin https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86
+          git -C "$CLANG_SRC" sparse-checkout init --cone
+          git -C "$CLANG_SRC" sparse-checkout set clang-r383902
+          git -C "$CLANG_SRC" fetch --depth=1 --filter=blob:none origin "$CLANG_COMMIT"
+          git -C "$CLANG_SRC" checkout --detach FETCH_HEAD
+          test "$(git -C "$CLANG_SRC" rev-parse HEAD)" = "$CLANG_COMMIT"
+          test -x "$CLANG_SRC/clang-r383902/bin/clang"
+
+          echo "KERNEL_SRC=$KERNEL_SRC" >> "$GITHUB_ENV"
+          echo "CLANG_BIN=$CLANG_SRC/clang-r383902/bin" >> "$GITHUB_ENV"
+
+      - name: Integrate legacy KernelSU and build
+        env:
+          KSU_TAG: v0.9.5
+        run: |
+          set -euo pipefail
+          cd "$KERNEL_SRC"
+          curl -fsSL "https://raw.githubusercontent.com/tiann/KernelSU/$KSU_TAG/kernel/setup.sh" -o "$RUNNER_TEMP/ksu-setup.sh"
+          bash "$RUNNER_TEMP/ksu-setup.sh" "$KSU_TAG"
+          test "$(git -C KernelSU rev-parse HEAD)" = b766b98513b5a7eb33bc1c4a76b5702bf1288f07
+
+          export PATH="$CLANG_BIN:$PATH"
+          export ARCH=arm64 LLVM=1 LLVM_IAS=1
+          export CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu-
+
+          make O=out vendor/munch_user_defconfig
+          scripts/config --file out/.config --enable KSU
+          make O=out olddefconfig
+          grep -qx 'CONFIG_KSU=y' out/.config
+          make O=out -j"$(nproc)" Image.gz
+
+          test -s out/arch/arm64/boot/Image.gz
+          mkdir -p "$GITHUB_WORKSPACE/output"
+          printf 'kernel_release=%s\nkernel_source_commit=%s\nkernelsu_tag=%s\nkernelsu_commit=%s\nclang=%s\n' \
+            "$(make O=out kernelrelease)" \
+            "$(git rev-parse HEAD)" \
+            "$KSU_TAG" \
+            "$(git -C KernelSU rev-parse HEAD)" \
+            "$(clang --version | head -n 1)" \
+            > "$GITHUB_WORKSPACE/output/build-info.txt"
+
+      - name: Package Munch AnyKernel3 ZIP
+        env:
+          ANYKERNEL_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+        run: |
+          set -euo pipefail
+          AK3="$RUNNER_TEMP/AnyKernel3"
+          mkdir -p "$AK3"
+          curl -fsSL "https://github.com/osm0sis/AnyKernel3/archive/$ANYKERNEL_COMMIT.tar.gz" \
+            | tar -xz --strip-components=1 -C "$AK3"
+          cp "$KERNEL_SRC/out/arch/arm64/boot/Image.gz" "$AK3/Image.gz"
+          cp anykernel/anykernel.sh "$AK3/anykernel.sh"
+          (
+            cd "$AK3"
+            zip -qr "$GITHUB_WORKSPACE/output/KernelSU-Munch-AnyKernel3.zip" . -x '.git/*' '.github/*'
+          )
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KernelSU-Munch-${{ github.run_number }}
+          path: output/*
+          if-no-files-found: error
