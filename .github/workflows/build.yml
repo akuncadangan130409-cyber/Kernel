@@ -2,6 +2,8 @@ name: Build KernelSU for Munch
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -157,7 +159,11 @@ jobs:
           grep -qx 'CONFIG_LOCALVERSION="-perf-g045c5942d886"' out/.config
           ! grep -qx 'CONFIG_LOCALVERSION_AUTO=y' out/.config
           KERNEL_RELEASE="$(make --no-print-directory -s O=out kernelrelease)"
-          test "$KERNEL_RELEASE" = "$STOCK_KERNEL_RELEASE"
+          printf '::notice::kernel release candidate: %s (stock: %s)\n' "$KERNEL_RELEASE" "$STOCK_KERNEL_RELEASE"
+          if [ "$KERNEL_RELEASE" != "$STOCK_KERNEL_RELEASE" ]; then
+            printf '::error::kernel release mismatch: got %s, expected %s\n' "$KERNEL_RELEASE" "$STOCK_KERNEL_RELEASE"
+            exit 1
+          fi
           if ! make O=out LD=aarch64-linux-android-ld -j"$(nproc)" Image.gz > "$RUNNER_TEMP/kernel-build.log" 2>&1; then
             BUILD_TAIL="$(python3 - "$RUNNER_TEMP/kernel-build.log" <<'PYLOG'
           from pathlib import Path
