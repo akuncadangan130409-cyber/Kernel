@@ -2,6 +2,8 @@ name: Build KernelSU for Munch
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -23,19 +25,25 @@ jobs:
       - name: Fetch pinned kernel source and Clang
         env:
           KERNEL_COMMIT: 9aba441cf6cd86f1e81ee6a2608e9102b05c52a7
+          DISPLAY_COMMIT: 2fdca387269615872d4ff798e8da7d33345c1338
           CLANG_COMMIT: 252aba16f513a857bc923172f67b0e55e23de35f
         run: |
           set -euo pipefail
           KERNEL_SRC="$RUNNER_TEMP/munch-kernel"
+          DISPLAY_SRC="$RUNNER_TEMP/alioth-display"
           CLANG_SRC="$RUNNER_TEMP/aosp-clang"
 
           git clone --depth=1 --single-branch --branch munch-s-oss \
             https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git "$KERNEL_SRC"
           test "$(git -C "$KERNEL_SRC" rev-parse HEAD)" = "$KERNEL_COMMIT"
-          if [ ! -d "$KERNEL_SRC/techpack/display" ]; then
-            echo "::error::Munch 4.19.157 source omits techpack/display; DRM has unresolved Xiaomi display symbols. A matching display source tree is required before building."
-            exit 1
-          fi
+
+          git clone --depth=1 --filter=blob:none --sparse --single-branch --branch alioth-r-oss \
+            https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git "$DISPLAY_SRC"
+          test "$(git -C "$DISPLAY_SRC" rev-parse HEAD)" = "$DISPLAY_COMMIT"
+          git -C "$DISPLAY_SRC" sparse-checkout set techpack/display
+          cp -a "$DISPLAY_SRC/techpack/display" "$KERNEL_SRC/techpack/display"
+          test -s "$KERNEL_SRC/techpack/display/msm/dsi/dsi_display_mi.c"
+          test -s "$KERNEL_SRC/techpack/display/msm/xiaomi_frame_stat.c"
 
           git init "$CLANG_SRC"
           git -C "$CLANG_SRC" remote add origin https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86
@@ -47,6 +55,7 @@ jobs:
           test -x "$CLANG_SRC/clang-r383902/bin/clang"
 
           echo "KERNEL_SRC=$KERNEL_SRC" >> "$GITHUB_ENV"
+          echo "DISPLAY_COMMIT=$DISPLAY_COMMIT" >> "$GITHUB_ENV"
           echo "CLANG_BIN=$CLANG_SRC/clang-r383902/bin" >> "$GITHUB_ENV"
 
       - name: Integrate legacy KernelSU and build
@@ -117,9 +126,10 @@ jobs:
 
           test -s out/arch/arm64/boot/Image.gz
           mkdir -p "$GITHUB_WORKSPACE/output"
-          printf 'kernel_release=%s\nkernel_source_commit=%s\nkernelsu_tag=%s\nkernelsu_commit=%s\nclang=%s\n' \
+          printf 'kernel_release=%s\nkernel_source_commit=%s\ndisplay_source_commit=%s\nkernelsu_tag=%s\nkernelsu_commit=%s\nclang=%s\n' \
             "$(make O=out kernelrelease)" \
             "$(git rev-parse HEAD)" \
+            "$DISPLAY_COMMIT" \
             "$KSU_TAG" \
             "$(git -C KernelSU rev-parse HEAD)" \
             "$(clang --version | head -n 1)" \

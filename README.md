@@ -1,25 +1,27 @@
 # KernelSU build for Munch
 
-The workflow is prepared for Xiaomi's `munch-s-oss` Linux 4.19.157 source,
-legacy KernelSU `v0.9.5`, and an AnyKernel3 package that would preserve the
-installed boot ramdisk. It is manual-only while the required source is missing.
+The workflow uses Xiaomi's `munch-s-oss` Linux 4.19.157 source, legacy
+KernelSU `v0.9.5`, and an AnyKernel3 package that preserves the installed boot
+ramdisk. It is manual-only.
 
-## Current blocker
+## Display source bridge under evaluation
 
-The public `munch-s-oss` source tree has `techpack/stub`, but no matching
-`techpack/display`. Its DRM code references Xiaomi display symbols that cannot
-be linked without that implementation. The GitHub build reached final linking
-and failed on these unresolved symbols:
+The public Munch 4.19.157 tree has `techpack/stub`, but no `techpack/display`.
+Its DRM code references Xiaomi display symbols. The workflow adds only
+`techpack/display` from Xiaomi's Alioth R source at commit
+`2fdca387269615872d4ff798e8da7d33345c1338` (kernel 4.19.113). That source
+defines the missing symbols with matching function signatures:
 
 - `dsi_display_set_thermal_hbm_disabled`
 - `dsi_display_get_hw_vsync_info`
 - `smart_fps_value_show`
 
-The implementations found in public Munch-related trees are based on newer
-4.19.246/4.19.325 kernels. They are not being substituted into the stock
-4.19.157 build because compatibility with the ROM's vendor modules is unverified.
+This is a source compatibility experiment, not a verified stock display
+backport. A successful link does not establish runtime compatibility with the
+ROM or its vendor modules. No image has been flashed.
 
-A source tree containing the matching `techpack/display` is needed to finish
-this build. Until then, no flashable ZIP or kernel artifact has been produced.
+The previous build stopped at final linking with those symbols unresolved.
+The next build checks whether the pinned display subtree compiles with the
+Munch 4.19.157 base.
 
 The stock `boot.img`, `dtbo.img`, and `vendor_boot.img` remain outside this repo.
