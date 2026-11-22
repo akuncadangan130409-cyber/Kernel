@@ -98,8 +98,14 @@ jobs:
           if ! make O=out -j"$(nproc)" Image.gz > "$RUNNER_TEMP/kernel-build.log" 2>&1; then
             BUILD_TAIL="$(python3 - "$RUNNER_TEMP/kernel-build.log" <<'PYLOG'
           from pathlib import Path
-          import sys
-          text = "\n".join(Path(sys.argv[1]).read_text(errors="replace").splitlines()[-50:])
+          import re, sys
+          lines = Path(sys.argv[1]).read_text(errors="replace").splitlines()
+          matches = [i for i, line in enumerate(lines) if re.search(r"(?:fatal )?error:|clang: error:|Killed|Error [0-9]+", line)]
+          if matches:
+              selected = {j for i in matches[-4:] for j in range(max(0, i - 4), min(len(lines), i + 5))}
+              text = "\n".join(lines[i] for i in sorted(selected))
+          else:
+              text = "\n".join(lines[-100:])
           print(text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))
           PYLOG
           )"
