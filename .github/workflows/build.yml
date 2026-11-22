@@ -82,7 +82,7 @@ jobs:
           python3 -m py_compile scripts/gcc-wrapper.py
 
           export PATH="$CLANG_BIN:$PATH"
-          export ARCH=arm64 LLVM=1 LLVM_IAS=1
+          export ARCH=arm64 LLVM=1 LLVM_IAS=1 PYTHON=python3 REAL_CC=clang
           export CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CLANG_TRIPLE=aarch64-linux-gnu-
 
