@@ -2,6 +2,8 @@ name: Build KernelSU for Munch
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -88,6 +90,17 @@ jobs:
           p.write_text(s)
           PYTHON
           python3 -m py_compile scripts/gcc-wrapper.py
+
+          python3 - <<'PYTHON_PATCH'
+          from pathlib import Path
+          p = Path("kernel/sched/walt.h")
+          s = p.read_text()
+          old = "\tSCHED_PRINT(p->pid);"
+          new = '\tprintk_deferred("%s=%d", "p->pid", p->pid);'
+          if old not in s:
+              raise SystemExit("expected WALT pid print not found")
+          p.write_text(s.replace(old, new, 1))
+          PYTHON_PATCH
 
           export PATH="$GCC_BIN:$PATH"
           export ARCH=arm64 PYTHON=python3
