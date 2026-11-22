@@ -2,6 +2,8 @@ name: Build KernelSU for Munch
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -18,7 +20,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bc bison build-essential ca-certificates cpio flex git \
             libelf-dev libncurses5 libncurses-dev libssl-dev libtinfo5 \
-            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi python3 unzip zip
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi lld python3 unzip zip
 
       - name: Fetch pinned kernel source and Clang
         env:
@@ -104,7 +106,7 @@ jobs:
           scripts/config --file out/.config --enable KSU
           make O=out olddefconfig
           grep -qx 'CONFIG_KSU=y' out/.config
-          if ! make O=out LD=aarch64-linux-gnu-ld -j"$(nproc)" Image.gz > "$RUNNER_TEMP/kernel-build.log" 2>&1; then
+          if ! make O=out LD=/usr/bin/ld.lld -j"$(nproc)" Image.gz > "$RUNNER_TEMP/kernel-build.log" 2>&1; then
             BUILD_TAIL="$(python3 - "$RUNNER_TEMP/kernel-build.log" <<'PYLOG'
           from pathlib import Path
           import re, sys
