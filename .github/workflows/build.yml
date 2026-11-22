@@ -2,6 +2,8 @@ name: Build KernelSU for Munch
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -156,6 +158,7 @@ jobs:
           grep -qx 'CONFIG_MODVERSIONS=y' out/.config
           grep -qx 'CONFIG_LOCALVERSION="-perf-g045c5942d886"' out/.config
           ! grep -qx 'CONFIG_LOCALVERSION_AUTO=y' out/.config
+          rm -f out/include/config/kernel.release
           KERNEL_RELEASE="$(make --no-print-directory -s O=out kernelrelease)"
           printf '::notice::kernel release candidate: %s (stock: %s)\n' "$KERNEL_RELEASE" "$STOCK_KERNEL_RELEASE"
           if [ "$KERNEL_RELEASE" != "$STOCK_KERNEL_RELEASE" ]; then
