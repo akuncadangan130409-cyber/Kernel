@@ -24,8 +24,9 @@ been flashed.
 
 The first build with this bridge compiled the display subtree and resolved
 the DRM references. Clang's LLD rejected the version CRC relocation for
-gsi_write_channel_scratch; the workflow uses the pinned Android GCC 4.9
-linker and preserves CONFIG_MODVERSIONS=y. The artifact includes
-Module.symvers for later comparison with vendor-module CRCs.
+gsi_write_channel_scratch. The first successful package had zero CRCs across
+Module.symvers, so it is not suitable for flashing with vendor modules. The
+workflow now removes Clang-only flags from the GCC genksyms preprocessing
+command and rejects any build with zero CRC entries before packaging.
 
 The stock `boot.img`, `dtbo.img`, and `vendor_boot.img` remain outside this repo.

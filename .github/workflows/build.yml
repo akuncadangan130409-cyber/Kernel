@@ -2,6 +2,8 @@ name: Build KernelSU for Munch
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -88,7 +90,7 @@ jobs:
               ("    line = line.rstrip('" + nl + "')",
                "    if isinstance(line, bytes):\n        line = line.decode('utf-8', errors='replace')\n    line = line.rstrip('" + nl + "')"),
               ("    args = sys.argv[1:]",
-               "    args = sys.argv[1:]\n    if '-D__GENKSYMS__' in args:\n        args[0] = os.environ.get('GENKSYMS_CC', args[0])"),
+               "    args = sys.argv[1:]\n    if '-D__GENKSYMS__' in args:\n        args[0] = os.environ.get('GENKSYMS_CC', args[0])\n        clang_flags = os.environ.get('CLANG_FLAGS', '').split()\n        args = [arg for arg in args if arg not in clang_flags and not arg.startswith('-W') and not arg.startswith(('--target=', '--prefix=', '--gcc-toolchain=')) and arg != '-no-integrated-as']"),
               ('        print "error, forbidden warning:", m.group(2)',
                '        print("error, forbidden warning:", m.group(2))'),
               ('            print line,', '            sys.stdout.buffer.write(line)'),
@@ -186,6 +188,10 @@ jobs:
           test -s out/arch/arm64/boot/Image.gz
           mkdir -p "$GITHUB_WORKSPACE/output"
           test -s out/Module.symvers
+          if grep -q '^0x00000000[[:space:]]' out/Module.symvers; then
+            echo "::error::Module.symvers contains zero CRCs; refusing to package a module-incompatible kernel."
+            exit 1
+          fi
           cp out/Module.symvers "$GITHUB_WORKSPACE/output/Module.symvers"
           printf 'kernel_release=%s\nkernel_source_commit=%s\ndisplay_source_commit=%s\nkernelsu_tag=%s\nkernelsu_commit=%s\nclang=%s\n' \
             "$KERNEL_RELEASE" \
