@@ -1,16 +1,25 @@
 # KernelSU build for Munch
 
-The GitHub Actions workflow builds Xiaomi's `munch-s-oss` Linux 4.19.157
-source with legacy KernelSU `v0.9.5` and the matching Android Clang 10 toolchain.
-It packages the kernel as an AnyKernel3 ZIP for the `munch` device.
+The workflow is prepared for Xiaomi's `munch-s-oss` Linux 4.19.157 source,
+legacy KernelSU `v0.9.5`, and an AnyKernel3 package that would preserve the
+installed boot ramdisk. It is manual-only while the required source is missing.
 
-The ZIP targets the active `boot` slot and repacks the existing boot ramdisk.
-It does not include or modify the workspace's stock `boot.img`, `dtbo.img`, or
-`vendor_boot.img`, and it does not patch `vbmeta`.
+## Current blocker
 
-Run the workflow with **Actions → Build KernelSU for Munch → Run workflow**.
-The ZIP and build metadata are uploaded as workflow artifacts.
+The public `munch-s-oss` source tree has `techpack/stub`, but no matching
+`techpack/display`. Its DRM code references Xiaomi display symbols that cannot
+be linked without that implementation. The GitHub build reached final linking
+and failed on these unresolved symbols:
 
-This is an experimental build from Xiaomi's published source snapshot. Keep the
-stock boot image and vendor modules available for recovery; this kernel has not
-been boot-tested on the device.
+- `dsi_display_set_thermal_hbm_disabled`
+- `dsi_display_get_hw_vsync_info`
+- `smart_fps_value_show`
+
+The implementations found in public Munch-related trees are based on newer
+4.19.246/4.19.325 kernels. They are not being substituted into the stock
+4.19.157 build because compatibility with the ROM's vendor modules is unverified.
+
+A source tree containing the matching `techpack/display` is needed to finish
+this build. Until then, no flashable ZIP or kernel artifact has been produced.
+
+The stock `boot.img`, `dtbo.img`, and `vendor_boot.img` remain outside this repo.
