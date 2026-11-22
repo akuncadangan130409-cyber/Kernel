@@ -2,6 +2,8 @@ name: Build KernelSU for Munch
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -18,16 +20,18 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bc bison build-essential ca-certificates cpio flex git \
             libelf-dev libncurses5 libncurses-dev libssl-dev libtinfo5 \
-            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi python3 unzip zip
+            gcc-arm-linux-gnueabi python3 unzip zip
 
       - name: Fetch pinned kernel source and Clang
         env:
           KERNEL_COMMIT: 9aba441cf6cd86f1e81ee6a2608e9102b05c52a7
           DISPLAY_COMMIT: 2fdca387269615872d4ff798e8da7d33345c1338
+          GCC_COMMIT: 961622e926a1b21382dba4dd9fe0e5fb3ee5ab7c
         run: |
           set -euo pipefail
           KERNEL_SRC="$RUNNER_TEMP/munch-kernel"
           DISPLAY_SRC="$RUNNER_TEMP/alioth-display"
+          GCC_SRC="$RUNNER_TEMP/aarch64-gcc49"
 
           git clone --depth=1 --single-branch --branch munch-s-oss \
             https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git "$KERNEL_SRC"
@@ -41,8 +45,17 @@ jobs:
           test -s "$KERNEL_SRC/techpack/display/msm/dsi/dsi_display_mi.c"
           test -s "$KERNEL_SRC/techpack/display/msm/xiaomi_frame_stat.c"
 
+          git clone --depth=1 --filter=blob:none --sparse --single-branch \
+            --branch android-msm-barbet-4.19-android12-qpr1 \
+            https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 "$GCC_SRC"
+          test "$(git -C "$GCC_SRC" rev-parse HEAD)" = "$GCC_COMMIT"
+          git -C "$GCC_SRC" sparse-checkout set bin lib libexec aarch64-linux-android
+          test -x "$GCC_SRC/bin/aarch64-linux-android-gcc"
+          "$GCC_SRC/bin/aarch64-linux-android-gcc" --version | head -n 1
+
           echo "KERNEL_SRC=$KERNEL_SRC" >> "$GITHUB_ENV"
           echo "DISPLAY_COMMIT=$DISPLAY_COMMIT" >> "$GITHUB_ENV"
+          echo "GCC_BIN=$GCC_SRC/bin" >> "$GITHUB_ENV"
 
       - name: Integrate legacy KernelSU and build
         env:
@@ -78,8 +91,9 @@ jobs:
           PYTHON
           python3 -m py_compile scripts/gcc-wrapper.py
 
+          export PATH="$GCC_BIN:$PATH"
           export ARCH=arm64 PYTHON=python3
-          export CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          export CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 
           if ! make O=out KBUILD_DEFCONFIG=vendor/munch_user_defconfig defconfig > "$RUNNER_TEMP/defconfig.log" 2>&1; then
             tail -n 20 "$RUNNER_TEMP/defconfig.log" | while IFS= read -r line; do
@@ -91,7 +105,7 @@ jobs:
           make O=out olddefconfig
           grep -qx 'CONFIG_KSU=y' out/.config
           grep -qx 'CONFIG_MODVERSIONS=y' out/.config
-          if ! make O=out LD=aarch64-linux-gnu-ld CC=aarch64-linux-gnu-gcc -j"$(nproc)" Image.gz > "$RUNNER_TEMP/kernel-build.log" 2>&1; then
+          if ! make O=out -j"$(nproc)" Image.gz > "$RUNNER_TEMP/kernel-build.log" 2>&1; then
             BUILD_TAIL="$(python3 - "$RUNNER_TEMP/kernel-build.log" <<'PYLOG'
           from pathlib import Path
           import re, sys
@@ -117,7 +131,7 @@ jobs:
             "$DISPLAY_COMMIT" \
             "$KSU_TAG" \
             "$(git -C KernelSU rev-parse HEAD)" \
-            "$(aarch64-linux-gnu-gcc --version | head -n 1)" \
+            "$(aarch64-linux-android-gcc --version | head -n 1)" \
             > "$GITHUB_WORKSPACE/output/build-info.txt"
 
       - name: Package Munch AnyKernel3 ZIP

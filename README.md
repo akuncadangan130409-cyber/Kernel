@@ -21,10 +21,10 @@ backport. A successful link does not establish runtime compatibility with the
 ROM or its vendor modules. No image has been flashed.
 
 The first build with this bridge compiled the display subtree and resolved
-those DRM references. Clang 10 and Ubuntu LLD both reject the
-R_AARCH64_ABS32 relocation for the version CRC of gsi_write_channel_scratch.
-GNU binutils ld also fails while that CRC is missing. The next attempt uses
-GCC's preprocessor for genksyms, disables only DYNAMIC_DEBUG, and explicitly
-retains CONFIG_MODVERSIONS=y.
+those DRM references. Clang 10 and Ubuntu LLD reject the R_AARCH64_ABS32
+relocation for the version CRC of gsi_write_channel_scratch. Ubuntu's GCC 11
+fails earlier on this 4.19 source. The next attempt uses the pinned Android
+GCC 4.9 cross-toolchain and its matching linker, disables only DYNAMIC_DEBUG,
+and explicitly retains CONFIG_MODVERSIONS=y.
 
 The stock `boot.img`, `dtbo.img`, and `vendor_boot.img` remain outside this repo.
