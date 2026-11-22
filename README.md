@@ -20,8 +20,10 @@ This is a source compatibility experiment, not a verified stock display
 backport. A successful link does not establish runtime compatibility with the
 ROM or its vendor modules. No image has been flashed.
 
-The previous build stopped at final linking with those symbols unresolved.
-The next build checks whether the pinned display subtree compiles with the
-Munch 4.19.157 base.
+The first build with this bridge compiled the display subtree and resolved
+those DRM references. Final linking then failed because LLD rejected an
+R_AARCH64_ABS32 relocation for the version CRC of
+gsi_write_channel_scratch. The next attempt uses GNU binutils ld for the
+kernel link while keeping the kernel's module-version configuration.
 
 The stock `boot.img`, `dtbo.img`, and `vendor_boot.img` remain outside this repo.
