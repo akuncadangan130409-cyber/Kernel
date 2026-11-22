@@ -62,7 +62,12 @@ jobs:
           export ARCH=arm64 LLVM=1 LLVM_IAS=1
           export CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu-
 
-          make O=out vendor/munch_user_defconfig
+          if ! make O=out KBUILD_DEFCONFIG=vendor/munch_user_defconfig defconfig > "$RUNNER_TEMP/defconfig.log" 2>&1; then
+            tail -n 20 "$RUNNER_TEMP/defconfig.log" | while IFS= read -r line; do
+              printf '::error::%s\n' "$line"
+            done
+            exit 1
+          fi
           scripts/config --file out/.config --enable KSU
           make O=out olddefconfig
           grep -qx 'CONFIG_KSU=y' out/.config
