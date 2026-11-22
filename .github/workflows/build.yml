@@ -62,15 +62,18 @@ jobs:
           from pathlib import Path
           p = Path("scripts/gcc-wrapper.py")
           s = p.read_text()
-          replacements = {
-              '    line = line.rstrip(\'\n\')': "    if isinstance(line, bytes):\n        line = line.decode(\'utf-8\', errors=\'replace\')\n    line = line.rstrip(\'\n\')",
-              '        print "error, forbidden warning:", m.group(2)': '        print("error, forbidden warning:", m.group(2))',
-              '            print line,': '            sys.stdout.buffer.write(line)',
-              "            print args[0] + ':',e.strerror": "            print(args[0] + ':', e.strerror)",
-              "            print 'Is your PATH set correctly?'": "            print('Is your PATH set correctly?')",
-              "            print ' '.join(args), str(e)": "            print(' '.join(args), str(e))",
-          }
-          for old, new in replacements.items():
+          nl = chr(92) + "n"
+          replacements = [
+              ("    line = line.rstrip('" + nl + "')",
+               "    if isinstance(line, bytes):\n        line = line.decode('utf-8', errors='replace')\n    line = line.rstrip('" + nl + "')"),
+              ('        print "error, forbidden warning:", m.group(2)',
+               '        print("error, forbidden warning:", m.group(2))'),
+              ('            print line,', '            sys.stdout.buffer.write(line)'),
+              ("            print args[0] + ':',e.strerror", "            print(args[0] + ':', e.strerror)"),
+              ("            print 'Is your PATH set correctly?'", "            print('Is your PATH set correctly?')"),
+              ("            print ' '.join(args), str(e)", "            print(' '.join(args), str(e))"),
+          ]
+          for old, new in replacements:
               if old not in s:
                   raise SystemExit(f"expected Python 2 line not found: {old!r}")
               s = s.replace(old, new)
