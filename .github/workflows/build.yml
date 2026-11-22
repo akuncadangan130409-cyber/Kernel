@@ -58,6 +58,26 @@ jobs:
           bash "$RUNNER_TEMP/ksu-setup.sh" "$KSU_TAG"
           test "$(git -C KernelSU rev-parse HEAD)" = b766b98513b5a7eb33bc1c4a76b5702bf1288f07
 
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          p = Path("scripts/gcc-wrapper.py")
+          s = p.read_text()
+          replacements = {
+              '    line = line.rstrip(\'\n\')': "    if isinstance(line, bytes):\n        line = line.decode(\'utf-8\', errors=\'replace\')\n    line = line.rstrip(\'\n\')",
+              '        print "error, forbidden warning:", m.group(2)': '        print("error, forbidden warning:", m.group(2))',
+              '            print line,': '            sys.stdout.buffer.write(line)',
+              "            print args[0] + ':',e.strerror": "            print(args[0] + ':', e.strerror)",
+              "            print 'Is your PATH set correctly?'": "            print('Is your PATH set correctly?')",
+              "            print ' '.join(args), str(e)": "            print(' '.join(args), str(e))",
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f"expected Python 2 line not found: {old!r}")
+              s = s.replace(old, new)
+          p.write_text(s)
+          PYTHON
+          python3 -m py_compile scripts/gcc-wrapper.py
+
           export PATH="$CLANG_BIN:$PATH"
           export ARCH=arm64 LLVM=1 LLVM_IAS=1
           export CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu-
