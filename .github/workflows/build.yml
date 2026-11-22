@@ -51,7 +51,8 @@ jobs:
         env:
           KSU_TAG: v0.9.5
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
+          trap 'rc=$?; printf "::error::Failed at line %s: %s (exit %s)\n" "$LINENO" "$BASH_COMMAND" "$rc"; exit "$rc"' ERR
           cd "$KERNEL_SRC"
           curl -fsSL "https://raw.githubusercontent.com/tiann/KernelSU/$KSU_TAG/kernel/setup.sh" -o "$RUNNER_TEMP/ksu-setup.sh"
           bash "$RUNNER_TEMP/ksu-setup.sh" "$KSU_TAG"
