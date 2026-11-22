@@ -70,6 +70,7 @@ jobs:
       - name: Integrate legacy KernelSU and build
         env:
           KSU_TAG: v0.9.5
+          STOCK_KERNEL_RELEASE: 4.19.157-perf-g045c5942d886
         run: |
           set -Eeuo pipefail
           trap 'rc=$?; printf "::error::Failed at line %s: %s (exit %s)\n" "$LINENO" "$BASH_COMMAND" "$rc"; exit "$rc"' ERR
@@ -148,10 +149,15 @@ jobs:
             done
             exit 1
           fi
-          scripts/config --file out/.config --enable KSU --disable DYNAMIC_DEBUG
+          scripts/config --file out/.config --enable KSU --disable DYNAMIC_DEBUG \
+            --set-str LOCALVERSION "-perf-g045c5942d886" --disable LOCALVERSION_AUTO
           make O=out olddefconfig
           grep -qx 'CONFIG_KSU=y' out/.config
           grep -qx 'CONFIG_MODVERSIONS=y' out/.config
+          grep -qx 'CONFIG_LOCALVERSION="-perf-g045c5942d886"' out/.config
+          ! grep -qx 'CONFIG_LOCALVERSION_AUTO=y' out/.config
+          KERNEL_RELEASE="$(make --no-print-directory -s O=out kernelrelease)"
+          test "$KERNEL_RELEASE" = "$STOCK_KERNEL_RELEASE"
           if ! make O=out LD=aarch64-linux-android-ld -j"$(nproc)" Image.gz > "$RUNNER_TEMP/kernel-build.log" 2>&1; then
             BUILD_TAIL="$(python3 - "$RUNNER_TEMP/kernel-build.log" <<'PYLOG'
           from pathlib import Path
@@ -172,8 +178,10 @@ jobs:
 
           test -s out/arch/arm64/boot/Image.gz
           mkdir -p "$GITHUB_WORKSPACE/output"
+          test -s out/Module.symvers
+          cp out/Module.symvers "$GITHUB_WORKSPACE/output/Module.symvers"
           printf 'kernel_release=%s\nkernel_source_commit=%s\ndisplay_source_commit=%s\nkernelsu_tag=%s\nkernelsu_commit=%s\nclang=%s\n' \
-            "$(make O=out kernelrelease)" \
+            "$KERNEL_RELEASE" \
             "$(git rev-parse HEAD)" \
             "$DISPLAY_COMMIT" \
             "$KSU_TAG" \

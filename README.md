@@ -18,14 +18,14 @@ defines the missing symbols with matching function signatures:
 
 This is a source compatibility experiment, not a verified stock display
 backport. A successful link does not establish runtime compatibility with the
-ROM or its vendor modules. No image has been flashed.
+ROM or its vendor modules. The workflow asserts the exact stock kernel release
+read from the supplied boot image: 4.19.157-perf-g045c5942d886. No image has
+been flashed.
 
 The first build with this bridge compiled the display subtree and resolved
-those DRM references. Clang 10 and Ubuntu LLD reject the R_AARCH64_ABS32
-relocation for the version CRC of gsi_write_channel_scratch. Ubuntu's GCC 11 and Android GCC 4.9 expose unrelated source/compiler
-failures. The current attempt returns compilation to the pinned Android Clang
-10 toolchain, uses GCC 11 preprocessing only for genksyms, and links with the
-pinned Android GCC 4.9 linker. It keeps CONFIG_MODVERSIONS=y and disables only
-DYNAMIC_DEBUG for the GNU linker.
+the DRM references. Clang's LLD rejected the version CRC relocation for
+gsi_write_channel_scratch; the workflow uses the pinned Android GCC 4.9
+linker and preserves CONFIG_MODVERSIONS=y. The artifact includes
+Module.symvers for later comparison with vendor-module CRCs.
 
 The stock `boot.img`, `dtbo.img`, and `vendor_boot.img` remain outside this repo.
