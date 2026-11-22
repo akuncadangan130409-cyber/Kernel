@@ -21,9 +21,10 @@ backport. A successful link does not establish runtime compatibility with the
 ROM or its vendor modules. No image has been flashed.
 
 The first build with this bridge compiled the display subtree and resolved
-those DRM references. Clang 10's LLD rejected an R_AARCH64_ABS32 relocation
-for the version CRC of gsi_write_channel_scratch. GNU binutils ld then failed
-on dynamic-debug relocations in the same driver. The next attempt uses the
-newer Ubuntu LLD while keeping the kernel's module-version configuration.
+those DRM references. Clang 10 and Ubuntu LLD both reject the
+R_AARCH64_ABS32 relocation for the version CRC of gsi_write_channel_scratch.
+GNU binutils ld handles kernel modversions but rejects the dynamic-debug
+relocations in that driver. The next attempt disables only DYNAMIC_DEBUG and
+uses GNU ld, while explicitly retaining CONFIG_MODVERSIONS=y.
 
 The stock `boot.img`, `dtbo.img`, and `vendor_boot.img` remain outside this repo.
