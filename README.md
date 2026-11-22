@@ -24,7 +24,7 @@ The first build with this bridge compiled the display subtree and resolved
 those DRM references. Clang 10 and Ubuntu LLD reject the R_AARCH64_ABS32
 relocation for the version CRC of gsi_write_channel_scratch. Ubuntu's GCC 11
 fails earlier on this 4.19 source. The next attempt uses the pinned Android
-GCC 4.9 cross-toolchain and its matching linker, casts WALT debug values to the type required by the existing format, disables only DYNAMIC_DEBUG, and explicitly
+GCC 4.9 cross-toolchain and its matching linker, fixes two WALT debug format/type mismatches, disables only DYNAMIC_DEBUG, and explicitly
 retains CONFIG_MODVERSIONS=y.
 
 The stock `boot.img`, `dtbo.img`, and `vendor_boot.img` remain outside this repo.

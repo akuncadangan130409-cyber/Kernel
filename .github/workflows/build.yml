@@ -2,6 +2,8 @@ name: Build KernelSU for Munch
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -93,11 +95,17 @@ jobs:
           from pathlib import Path
           p = Path("kernel/sched/walt.h")
           s = p.read_text()
-          old = '#define SCHED_PRINT(arg)        printk_deferred("%s=%llu", #arg, arg)'
-          new = '#define SCHED_PRINT(arg)        printk_deferred("%s=%llu", #arg, (unsigned long long)(arg))'
-          if old not in s:
-              raise SystemExit("expected WALT pid print not found")
-          p.write_text(s.replace(old, new, 1))
+          replacements = [
+              ('#define SCHED_PRINT(arg)        printk_deferred("%s=%llu", #arg, arg)',
+               '#define SCHED_PRINT(arg)        printk_deferred("%s=%llu", #arg, (unsigned long long)(arg))'),
+              ('printk_deferred("Time last window changed=%lu\\n",\n\t\t\tsched_ravg_window_change_time);',
+               'printk_deferred("Time last window changed=%llu\\n",\n\t\t\t(unsigned long long)sched_ravg_window_change_time);'),
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f"expected WALT format not found: {old!r}")
+              s = s.replace(old, new, 1)
+          p.write_text(s)
           PYTHON_PATCH
 
           export PATH="$GCC_BIN:$PATH"
