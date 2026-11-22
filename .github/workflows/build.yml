@@ -20,7 +20,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bc bison build-essential ca-certificates cpio flex git \
             libelf-dev libncurses5 libncurses-dev libssl-dev libtinfo5 \
-            python3 unzip zip
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi python3 unzip zip
 
       - name: Fetch pinned kernel source and Clang
         env:
@@ -83,7 +83,8 @@ jobs:
 
           export PATH="$CLANG_BIN:$PATH"
           export ARCH=arm64 LLVM=1 LLVM_IAS=1
-          export CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu-
+          export CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          export CLANG_TRIPLE=aarch64-linux-gnu-
 
           if ! make O=out KBUILD_DEFCONFIG=vendor/munch_user_defconfig defconfig > "$RUNNER_TEMP/defconfig.log" 2>&1; then
             tail -n 20 "$RUNNER_TEMP/defconfig.log" | while IFS= read -r line; do
