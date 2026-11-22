@@ -2,6 +2,8 @@ name: Build KernelSU for Munch
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -93,8 +95,8 @@ jobs:
           from pathlib import Path
           p = Path("kernel/sched/walt.h")
           s = p.read_text()
-          old = "\tSCHED_PRINT(p->pid);"
-          new = '\tprintk_deferred("%s=%d", "p->pid", p->pid);'
+          old = '#define SCHED_PRINT(arg)        printk_deferred("%s=%llu", #arg, arg)'
+          new = '#define SCHED_PRINT(arg)        printk_deferred("%s=%llu", #arg, (unsigned long long)(arg))'
           if old not in s:
               raise SystemExit("expected WALT pid print not found")
           p.write_text(s.replace(old, new, 1))
