@@ -1,6 +1,7 @@
 name: Build KernelSU for Munch
 
 on:
+  push:
   workflow_dispatch:
 
 permissions:
@@ -87,8 +88,6 @@ jobs:
           replacements = [
               ("    line = line.rstrip('" + nl + "')",
                "    if isinstance(line, bytes):\n        line = line.decode('utf-8', errors='replace')\n    line = line.rstrip('" + nl + "')"),
-              ("    args = sys.argv[1:]",
-               "    args = sys.argv[1:]\n    if '-D__GENKSYMS__' in args:\n        args[0] = os.environ.get('GENKSYMS_CC', args[0])\n        clang_flags = os.environ.get('CLANG_FLAGS', '').split()\n        args = [arg for arg in args if arg not in clang_flags and not arg.startswith('-W') and not arg.startswith(('--target=', '--prefix=', '--gcc-toolchain=')) and arg != '-no-integrated-as']"),
               ('        print "error, forbidden warning:", m.group(2)',
                '        print("error, forbidden warning:", m.group(2))'),
               ('            print line,', '            sys.stdout.buffer.write(line)'),
@@ -139,7 +138,6 @@ jobs:
 
           export PATH="$CLANG_BIN:$GCC_BIN:$PATH"
           export ARCH=arm64 LLVM=1 PYTHON=python3 REAL_CC=clang
-          export GENKSYMS_CC=aarch64-linux-gnu-gcc
           export CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CLANG_TRIPLE=aarch64-linux-gnu-
 
