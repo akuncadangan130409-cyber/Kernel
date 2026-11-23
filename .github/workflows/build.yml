@@ -1,7 +1,6 @@
 name: Build KernelSU for Munch
 
 on:
-  push:
   workflow_dispatch:
 
 permissions:
