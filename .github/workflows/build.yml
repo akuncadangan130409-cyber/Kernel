@@ -1,6 +1,7 @@
 name: Build KernelSU for Munch
 
 on:
+  push:
   workflow_dispatch:
 
 permissions:
@@ -196,8 +197,18 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/output"
           test -s out/Module.symvers
           if grep -q '^0x00000000[[:space:]]' out/Module.symvers; then
+            echo '::notice::Regenerating Module.symvers from final vmlinux with modpost.'
+            (cd out && scripts/mod/modpost -m -s -o Module.symvers vmlinux)
+          fi
+          if grep -q '^0x00000000[[:space:]]' out/Module.symvers; then
             VMLINUX_CRC="$("$GCC_BIN/aarch64-linux-android-nm" out/vmlinux | awk '$NF == "__crc_ipv6_chk_custom_prefix" { print $1; exit }')"
-            printf '::error::Module.symvers contains zero CRCs; addrconf object=%s, vmlinux=%s\n' "$PROBE_CRC" "${VMLINUX_CRC:-missing}"
+            printf '::error::Module.symvers still has zero CRCs; addrconf object=%s, vmlinux=%s\n' "$PROBE_CRC" "${VMLINUX_CRC:-missing}"
+            exit 1
+          fi
+          EXPECTED_PROBE_CRC="$(printf '0x%08x' "$((16#$PROBE_CRC))")"
+          SYMVERS_PROBE_CRC="$(awk '$2 == "ipv6_chk_custom_prefix" { print $1; exit }' out/Module.symvers)"
+          if [ "$SYMVERS_PROBE_CRC" != "$EXPECTED_PROBE_CRC" ]; then
+            printf '::error::Module.symvers CRC mismatch for ipv6_chk_custom_prefix: got %s, expected %s\n' "${SYMVERS_PROBE_CRC:-missing}" "$EXPECTED_PROBE_CRC"
             exit 1
           fi
           cp out/Module.symvers "$GITHUB_WORKSPACE/output/Module.symvers"
