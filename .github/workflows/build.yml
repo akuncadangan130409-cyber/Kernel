@@ -1,6 +1,7 @@
 name: Build KernelSU for Munch
 
 on:
+  push:
   workflow_dispatch:
 
 permissions:
@@ -162,6 +163,18 @@ jobs:
             printf '::error::kernel release mismatch: got %s, expected %s\n' "$KERNEL_RELEASE" "$STOCK_KERNEL_RELEASE"
             exit 1
           fi
+          if ! make O=out -j"$(nproc)" net/ipv6/addrconf.o > "$RUNNER_TEMP/genksyms-probe.log" 2>&1; then
+            tail -n 30 "$RUNNER_TEMP/genksyms-probe.log" | while IFS= read -r line; do
+              printf '::error::genksyms probe: %s\n' "$line"
+            done
+            exit 1
+          fi
+          PROBE_CRC="$("$GCC_BIN/aarch64-linux-android-nm" out/net/ipv6/addrconf.o | awk '$NF == "__crc_ipv6_chk_custom_prefix" { print $1; exit }')"
+          if [ -z "$PROBE_CRC" ] || [ "$PROBE_CRC" = 00000000 ]; then
+            printf '::error::genksyms probe has no nonzero CRC for ipv6_chk_custom_prefix (value: %s)\n' "${PROBE_CRC:-missing}"
+            exit 1
+          fi
+          printf '::notice::genksyms probe CRC for ipv6_chk_custom_prefix: %s\n' "$PROBE_CRC"
           if ! make O=out LD=aarch64-linux-android-ld -j"$(nproc)" Image.gz > "$RUNNER_TEMP/kernel-build.log" 2>&1; then
             BUILD_TAIL="$(python3 - "$RUNNER_TEMP/kernel-build.log" <<'PYLOG'
           from pathlib import Path
@@ -184,7 +197,8 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/output"
           test -s out/Module.symvers
           if grep -q '^0x00000000[[:space:]]' out/Module.symvers; then
-            echo "::error::Module.symvers contains zero CRCs; refusing to package a module-incompatible kernel."
+            VMLINUX_CRC="$("$GCC_BIN/aarch64-linux-android-nm" out/vmlinux | awk '$NF == "__crc_ipv6_chk_custom_prefix" { print $1; exit }')"
+            printf '::error::Module.symvers contains zero CRCs; addrconf object=%s, vmlinux=%s\n' "$PROBE_CRC" "${VMLINUX_CRC:-missing}"
             exit 1
           fi
           cp out/Module.symvers "$GITHUB_WORKSPACE/output/Module.symvers"
